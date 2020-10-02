@@ -6,15 +6,19 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { getConnection } from 'typeorm';
 import { Role } from '../role/role.entity';
+import { RoleRepository } from '../role/role.repository';
 import { UserDetails } from './user.details.entity';
 import { User } from './user.entity';
 import { UserRepository } from './user.repository';
+import { status } from './../../shared/entity-status.enum';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(UserRepository)
     private readonly _userRepository: UserRepository,
+    @InjectRepository(RoleRepository)
+    private readonly _roleRepository: RoleRepository,
   ) {}
 
   async get(id: number): Promise<User> {
@@ -55,12 +59,33 @@ export class UserService {
   }
 
   async delete(id: number): Promise<void> {
-    const userExists = await this._userRepository.findOne(id, {
-      where: { isActive: 'ACTIVE' },
+    const userExist = await this._userRepository.findOne(id, {
+      where: { isActive: status.ACTIVE },
     });
-    if (!userExists) {
+    if (!userExist) {
       throw new NotFoundException();
     }
-    await this._userRepository.update(id, { isActive: 'ACTIVE' });
+    await this._userRepository.update(id, { isActive: status.ACTIVE });
+  }
+
+  async setRoleToUser(userId: number, roleId: number) {
+    const userExist = await this._userRepository.findOne(userId, {
+      where: { isActive: status.ACTIVE },
+    });
+
+    if (!userExist) {
+      throw new NotFoundException();
+    }
+    const roleExist = await this._roleRepository.findOne(roleId, {
+      where: { isActive: status.ACTIVE },
+    });
+
+    if (!roleExist) {
+      throw new NotFoundException('Role does not exist');
+    }
+    userExist.roles.push(roleExist);
+    await this._userRepository.save(userExist);
+
+    return true;
   }
 }
